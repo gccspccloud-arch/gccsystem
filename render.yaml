@@ -35,10 +35,10 @@ services:
           property: host        # e.g. gcc-web.onrender.com — Render prepends https://
 
   # -------------------- Frontend (Vite static) --------------------
+  # Static sites are always free on Render — no `plan` field allowed.
   - type: web
     name: gcc-web
     env: static
-    plan: free
     rootDir: client
     buildCommand: npm install && npm run build
     staticPublishPath: dist
