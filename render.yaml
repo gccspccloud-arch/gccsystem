@@ -28,11 +28,12 @@ services:
         sync: false             # set in dashboard
       - key: JWT_SECRET
         sync: false             # set in dashboard
+      # NOTE: must include scheme (https://) and no trailing slash.
+      # `fromService.property: host` only gives the bare hostname, which
+      # won't match the browser's Origin header — set this manually in the
+      # dashboard after first deploy: https://gcc-web.onrender.com
       - key: CLIENT_URL
-        fromService:
-          type: web
-          name: gcc-web
-          property: host        # e.g. gcc-web.onrender.com — Render prepends https://
+        sync: false
 
   # -------------------- Frontend (Vite static) --------------------
   # Static sites are always free on Render — no `plan` field allowed.
@@ -43,11 +44,12 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
+      # NOTE: must be the full URL ending in /api, e.g.
+      # https://gcc-api.onrender.com/api — set this in the dashboard after
+      # first deploy, then trigger a manual rebuild (Vite bakes env vars
+      # into the bundle at build time, not runtime).
       - key: VITE_API_BASE_URL
-        fromService:
-          type: web
-          name: gcc-api
-          property: host        # e.g. gcc-api.onrender.com
+        sync: false
     # SPA fallback so React Router deep-links work
     routes:
       - type: rewrite
