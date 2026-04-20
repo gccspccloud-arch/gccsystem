@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { eventService, eventTypeService } from '@/services/eventService';
 import { meetingService } from '@/services/meetingService';
+import { outreachSessionService } from '@/services/outreachService';
 import { reportService } from '@/services/reportService';
 import { PeoplePickerSingle, PeoplePickerMulti } from '@/components/PeoplePicker';
 
@@ -62,6 +63,11 @@ const CalendarPage = () => {
     queryFn: () => meetingService.list({ from: fromISO, to: toISO }),
   });
 
+  const { data: outreachSessionsData, isLoading: outreachLoading } = useQuery({
+    queryKey: ['outreach-sessions', 'calendar', cursor.getFullYear(), cursor.getMonth()],
+    queryFn: () => outreachSessionService.list({ from: fromISO, to: toISO }),
+  });
+
   const { data: celebrantsData } = useQuery({
     queryKey: ['celebrants', cursor.getFullYear(), cursor.getMonth()],
     queryFn: () => reportService.celebrants({ from: fromISO, to: toISO }),
@@ -69,6 +75,7 @@ const CalendarPage = () => {
 
   const events = eventsData?.data || [];
   const meetings = meetingsData?.data || [];
+  const outreachSessions = outreachSessionsData?.data || [];
   const celebrants = celebrantsData?.data?.items || [];
 
   const items = useMemo(() => {
@@ -101,8 +108,24 @@ const CalendarPage = () => {
       ministers: x.ministers,
       agenda: x.agenda,
     }));
-    return [...e, ...m];
-  }, [events, meetings]);
+    const o = outreachSessions.map((x) => ({
+      kind: 'outreachSession',
+      _id: x._id,
+      title: x.title,
+      type: x.outreach?.name || 'Outreach',
+      startDate: x.scheduledAt,
+      durationMinutes: x.durationMinutes,
+      locationType: 'Onsite',
+      location: x.location
+        || [x.outreach?.barangay, x.outreach?.city].filter(Boolean).join(', '),
+      link: '',
+      teacher: x.teacher,
+      ministers: x.ministers,
+      agenda: x.agenda,
+      outreachId: x.outreach?._id || x.outreach,
+    }));
+    return [...e, ...m, ...o];
+  }, [events, meetings, outreachSessions]);
 
   const eventsByDay = useMemo(() => {
     const map = {};
@@ -243,12 +266,19 @@ const CalendarPage = () => {
                   </div>
                   <div className="mt-1 flex flex-col gap-0.5">
                     {dayItems.slice(0, 2).map((e) => {
-                      const dot = e.kind === 'meeting' ? 'bg-amber-500' : 'bg-primary-600';
+                      const dot =
+                        e.kind === 'meeting' ? 'bg-amber-500'
+                        : e.kind === 'outreachSession' ? 'bg-purple-500'
+                        : 'bg-primary-600';
+                      const tipPrefix =
+                        e.kind === 'meeting' ? '🗓️ Meeting: '
+                        : e.kind === 'outreachSession' ? '🫶 Outreach: '
+                        : '📅 Event: ';
                       return (
                         <div
                           key={`${e.kind}-${e._id}`}
                           className="flex items-center gap-1 text-[10px] truncate"
-                          title={`${e.kind === 'meeting' ? '🗓️ Meeting: ' : '📅 Event: '}${e.title}`}
+                          title={`${tipPrefix}${e.title}`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
                           <span className="truncate text-gray-700">{e.title}</span>
@@ -264,7 +294,7 @@ const CalendarPage = () => {
             })}
           </div>
 
-          {(isLoading || meetingsLoading) && <p className="text-xs text-gray-400 mt-2">Loading...</p>}
+          {(isLoading || meetingsLoading || outreachLoading) && <p className="text-xs text-gray-400 mt-2">Loading...</p>}
         </div>
 
         <div className="card">
@@ -295,22 +325,34 @@ const CalendarPage = () => {
             <div className="flex flex-col gap-3">
               {selectedItems.map((e) => {
                 const isMeeting = e.kind === 'meeting';
+                const isOutreach = e.kind === 'outreachSession';
                 const accent = isMeeting
                   ? 'bg-amber-50 border-amber-400 text-amber-900'
-                  : 'bg-primary-50 border-primary-500 text-primary-900';
+                  : isOutreach
+                    ? 'bg-purple-50 border-purple-500 text-purple-900'
+                    : 'bg-primary-50 border-primary-500 text-primary-900';
+                const kindLabel = isMeeting ? '🗓️ Meeting · ' : isOutreach ? '🫶 Outreach · ' : '📅 Event · ';
+                const attendanceKind = isMeeting ? 'meeting' : isOutreach ? 'outreachSession' : 'event';
                 return (
                   <div key={`${e.kind}-${e._id}`} className={`border-l-4 rounded-md p-3 ${accent}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">{e.title}</p>
                         <p className="text-[11px] opacity-75">
-                          {isMeeting ? '🗓️ Meeting · ' : '📅 Event · '}{e.type}
+                          {kindLabel}{e.type}
                         </p>
                       </div>
                       <div className="flex gap-1.5 flex-shrink-0 items-center">
                         {isMeeting ? (
                           <Link
                             to="/meetings"
+                            className="text-xs font-medium bg-white/70 hover:bg-white border border-current px-2 py-1 rounded-md"
+                          >
+                            Open →
+                          </Link>
+                        ) : isOutreach ? (
+                          <Link
+                            to={e.outreachId ? `/outreach/${e.outreachId}` : '/outreach'}
                             className="text-xs font-medium bg-white/70 hover:bg-white border border-current px-2 py-1 rounded-md"
                           >
                             Open →
@@ -364,7 +406,7 @@ const CalendarPage = () => {
                       <p className="text-xs mt-1 whitespace-pre-wrap opacity-90">{e.agenda}</p>
                     )}
                     <Link
-                      to={`/attendance/${isMeeting ? 'meeting' : 'event'}/${e._id}`}
+                      to={`/attendance/${attendanceKind}/${e._id}`}
                       className="mt-3 w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-semibold py-2.5 rounded-lg text-sm shadow-sm transition-colors"
                     >
                       <span className="text-lg">📋</span>
