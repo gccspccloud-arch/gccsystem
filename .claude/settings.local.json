@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(timeout 15 node server.js)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-0o-1c-sheets.googleusercontent.com)",
+      "Bash(curl -sL \"https://docs.google.com/spreadsheets/d/1UFx9NuJWQut6264YYXcNDC-emif_zDtG6oyhVwV4TZs/gviz/tq?tqx=out:csv\")",
+      "Bash(timeout 10 node server.js)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s http://localhost:5000/api/health)",
+      "Bash(timeout 8 node -e \"require\\('dotenv'\\).config\\(\\); require\\('mongoose'\\).connect\\(process.env.MONGODB_URI\\).then\\(\\(\\) => { console.log\\('OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.log\\('FAIL:', e.message.split\\('\\\\n'\\)[0]\\); process.exit\\(1\\); }\\)\")",
+      "Bash(timeout 15 node -e \"require\\('dotenv'\\).config\\(\\); require\\('mongoose'\\).connect\\(process.env.MONGODB_URI\\).then\\(\\(\\) => { console.log\\('OK'\\); process.exit\\(0\\); }\\).catch\\(e => { console.log\\('FAIL:', e.message.split\\('\\\\n'\\)[0]\\); process.exit\\(1\\); }\\)\")",
+      "Bash(netstat -ano)",
+      "Bash(netstat -ano -p tcp)",
+      "Bash(node -e \"require\\('./src/routes/index.js'\\); console.log\\('routes load OK'\\);\")",
+      "Bash(node --check src/controllers/reportController.js)",
+      "Bash(node --check src/controllers/attendanceController.js)",
+      "Bash(node --check src/routes/index.js)",
+      "Bash(node --check src/routes/reports.js)",
+      "Bash(node --check src/routes/attendance.js)",
+      "Bash(npx --no-install vite --version)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); require\\('./src/routes/index.js'\\); console.log\\('routes load OK'\\);\")",
+      "Bash(node -e \"const {parse}=require\\('@babel/parser'\\); const fs=require\\('fs'\\); parse\\(fs.readFileSync\\('src/pages/AttendancePage.jsx','utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK'\\);\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const env = require\\('./src/config/env'\\); console.log\\('CLIENT_URL parsed as:', env.CLIENT_URL\\); require\\('./src/app'\\); console.log\\('app loads OK'\\);\")"
+    ]
+  }
+}
