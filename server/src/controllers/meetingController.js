@@ -8,6 +8,7 @@ const POPULATE = [
   { path: 'createdBy', select: 'firstName lastName' },
   { path: 'teacher.ref', select: PERSON_FIELDS },
   { path: 'ministers.ref', select: PERSON_FIELDS },
+  { path: 'ldpAssignments.category', select: 'name options' },
 ];
 
 const list = async (req, res, next) => {

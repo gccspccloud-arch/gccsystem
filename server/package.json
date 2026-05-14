@@ -9,6 +9,9 @@
     "seed:admin": "node src/seed/seedSuperAdmin.js",
     "seed:meeting-types": "node src/seed/seedMeetingTypes.js",
     "seed:event-types": "node src/seed/seedEventTypes.js",
+    "seed:ldp-categories": "node src/seed/seedLdpCategories.js",
+    "seed:members": "node src/seed/seedMembersFromSheet.js",
+    "seed:ldp-wiring": "node src/seed/seedLdpWiring.js",
     "lint": "eslint src/**/*.js"
   },
   "dependencies": {

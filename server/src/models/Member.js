@@ -65,6 +65,19 @@ const memberSchema = new mongoose.Schema(
 
     dateJoinedChurch: { type: Date, default: null },
     notes: { type: String, trim: true, default: '' },
+
+    // Life Development Progress: one selected value per category.
+    // value is the option label (string), so renames are visible until the
+    // admin runs the rename-and-migrate flow on the LdpCategory editor.
+    ldp: [
+      {
+        _id: false,
+        category: { type: mongoose.Schema.Types.ObjectId, ref: 'LdpCategory', required: true },
+        value: { type: String, trim: true, default: '' },
+        updatedAt: { type: Date, default: Date.now },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      },
+    ],
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );

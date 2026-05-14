@@ -3,7 +3,31 @@ const Meeting = require('../models/Meeting');
 const Event = require('../models/Event');
 const OutreachSession = require('../models/OutreachSession');
 const Member = require('../models/Member');
+const { recomputeMemberLdp, applyDirectLdpAssignments } = require('../services/ldpRecompute');
 const { success, error } = require('../utils/apiResponse');
+
+/**
+ * Fire-and-forget LDP update for a member who was just marked present (or
+ * absent) at a target. Two paths:
+ *   1. Direct: if the target has ldpAssignments, write those values directly.
+ *   2. Threshold: also recompute auto categories from attendance counts.
+ * The two coexist — direct assignments take precedence inside applyDirect,
+ * then recompute fills in any other auto categories not directly assigned.
+ */
+const triggerLdpUpdate = (memberId, userId, target) => {
+  if (!memberId) return;
+  const assignments = (target && Array.isArray(target.ldpAssignments)) ? target.ldpAssignments : [];
+  setImmediate(async () => {
+    try {
+      if (assignments.length > 0) {
+        await applyDirectLdpAssignments(memberId, assignments, { userId });
+      }
+      await recomputeMemberLdp(memberId, { userId });
+    } catch (err) {
+      console.error(`[LDP] auto-update failed for member ${memberId}:`, err.message);
+    }
+  });
+};
 
 const TARGET_MODELS = { Meeting, Event, OutreachSession };
 
@@ -72,6 +96,9 @@ const toggleMember = async (req, res, next) => {
 
     if (existing) {
       await existing.deleteOne();
+      // On removal we only recompute thresholds — direct assignments don't
+      // "un-set" because the staff's intent was an explicit assignment.
+      triggerLdpUpdate(member, req.user._id, null);
       return success(res, { action: 'removed', id: existing._id }, 'Attendance removed');
     }
 
@@ -86,6 +113,7 @@ const toggleMember = async (req, res, next) => {
       { path: 'member', select: 'firstName lastName middleName memberStatus' },
       { path: 'markedBy', select: 'firstName lastName' },
     ]);
+    triggerLdpUpdate(member, req.user._id, target);
     return success(res, { action: 'created', record }, 'Attendance recorded', 201);
   } catch (err) {
     next(err);
@@ -172,6 +200,7 @@ const promoteVisitor = async (req, res, next) => {
       },
     });
 
+    triggerLdpUpdate(newMember._id, req.user._id, null);
     return success(res, {
       member: newMember,
       migratedRecords: update.modifiedCount || 0,
@@ -218,7 +247,9 @@ const remove = async (req, res, next) => {
     if (!userCanMark(req.user, target)) {
       return error(res, 'You are not authorized to remove this record', 403);
     }
+    const memberRef = record.member;
     await record.deleteOne();
+    triggerLdpUpdate(memberRef, req.user._id, null);
     return success(res, { id: record._id }, 'Attendance removed');
   } catch (err) {
     next(err);

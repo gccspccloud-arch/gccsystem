@@ -1,28 +1,42 @@
+/**
+ * DESTRUCTIVE: wipes all EventType records and reseeds with the
+ * LDP-aligned set. Will refuse if any Event records reference the
+ * types being deleted. Pass FORCE_CLEAR_EVENTS=1 to also wipe Events.
+ */
 require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('../config/db');
 const EventType = require('../models/EventType');
+const Event = require('../models/Event');
 
 const DEFAULTS = [
-  { name: 'Sunday Service', description: 'Weekly Sunday worship service.' },
-  { name: 'Prayer Gathering', description: 'Church-wide prayer meeting.' },
-  { name: 'Outreach Event', description: 'Community outreach activities.' },
-  { name: 'Conference', description: 'Conferences, retreats, summits.' },
-  { name: 'Fellowship', description: 'Whole-church fellowship gatherings.' },
-  { name: 'Other', description: 'Other large gatherings.' },
+  { name: 'Worship Service (Onsite)', description: 'Sunday worship service — in-person attendance.' },
+  { name: 'Worship Service (Online)', description: 'Sunday worship service — livestream / online attendance.' },
 ];
 
 const seed = async () => {
   await connectDB();
-  let created = 0;
-  let skipped = 0;
-  for (const t of DEFAULTS) {
-    const existing = await EventType.findOne({ name: new RegExp(`^${t.name}$`, 'i') });
-    if (existing) { skipped += 1; continue; }
-    await EventType.create(t);
-    created += 1;
+
+  const eventsExist = await Event.countDocuments();
+  if (eventsExist > 0 && process.env.FORCE_CLEAR_EVENTS !== '1') {
+    console.error(`[Seed] Refusing to wipe EventType — ${eventsExist} Event(s) reference them.`);
+    console.error('       Re-run with FORCE_CLEAR_EVENTS=1 to also delete all Events.');
+    await mongoose.disconnect();
+    process.exit(1);
   }
-  console.log(`[Seed] Event types — created: ${created}, already existed: ${skipped}`);
+
+  if (eventsExist > 0) {
+    const r = await Event.deleteMany({});
+    console.log(`[Seed] Deleted ${r.deletedCount} existing Event(s).`);
+  }
+
+  const wipe = await EventType.deleteMany({});
+  console.log(`[Seed] Deleted ${wipe.deletedCount} existing EventType(s).`);
+
+  for (const t of DEFAULTS) {
+    await EventType.create(t);
+  }
+  console.log(`[Seed] Event types — created: ${DEFAULTS.length}`);
   await mongoose.disconnect();
 };
 

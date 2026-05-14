@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { meetingService, meetingTypeService } from '@/services/meetingService';
+import { ldpCategoryService } from '@/services/ldpService';
 import { useAuth } from '@/context/AuthContext';
 import { PeoplePickerSingle, PeoplePickerMulti } from '@/components/PeoplePicker';
 
@@ -267,6 +268,23 @@ const MeetingFormModal = ({ types, editing, error, isPending, onClose, onSubmit 
   defaultStart.setMinutes(0, 0, 0);
   defaultStart.setHours(defaultStart.getHours() + 1);
 
+  // All LDP categories — used to find which feed the selected meeting type.
+  const { data: ldpCatsData } = useQuery({
+    queryKey: ['ldp-categories', 'active'],
+    queryFn: () => ldpCategoryService.list(),
+  });
+  const ldpCats = ldpCatsData?.data || [];
+
+  // ldpDraft: { [categoryId]: optionLabel }
+  const [ldpDraft, setLdpDraft] = useState(() => {
+    const map = {};
+    (editing?.ldpAssignments || []).forEach((a) => {
+      const cid = a.category?._id || a.category;
+      if (cid) map[String(cid)] = a.optionLabel;
+    });
+    return map;
+  });
+
   const { register, handleSubmit, control, formState: { errors } } = useForm({
     defaultValues: editing
       ? {
@@ -301,14 +319,27 @@ const MeetingFormModal = ({ types, editing, error, isPending, onClose, onSubmit 
   });
 
   const locationType = useWatch({ control, name: 'locationType' });
+  const selectedMeetingTypeId = useWatch({ control, name: 'meetingType' });
+
+  // LDP categories that link to the currently-selected meeting type.
+  const linkedLdpCats = useMemo(() => {
+    if (!selectedMeetingTypeId) return [];
+    return ldpCats.filter((c) =>
+      (c.linkedMeetingTypes || []).some((ref) => String(ref?._id || ref) === String(selectedMeetingTypeId)),
+    );
+  }, [ldpCats, selectedMeetingTypeId]);
 
   const submit = (form) => {
+    const ldpAssignments = linkedLdpCats
+      .map((c) => ({ category: c._id, optionLabel: ldpDraft[String(c._id)] || '' }))
+      .filter((a) => a.optionLabel);
     onSubmit({
       ...form,
       durationMinutes: form.durationMinutes ? Number(form.durationMinutes) : undefined,
       // Clear the irrelevant field for clean data
       location: form.locationType === 'Onsite' ? form.location : '',
       link: form.locationType === 'Online' ? form.link : '',
+      ldpAssignments,
     });
   };
 
@@ -345,6 +376,41 @@ const MeetingFormModal = ({ types, editing, error, isPending, onClose, onSubmit 
               </select>
               {errors.meetingType && <p className="text-xs text-accent-red mt-1">{errors.meetingType.message}</p>}
             </div>
+
+            {/* LDP Assignments — appear when the selected type feeds LDP */}
+            {linkedLdpCats.length > 0 && (
+              <div className="sm:col-span-2 bg-primary-50/50 border border-primary-100 rounded-lg p-3">
+                <p className="text-xs font-semibold text-primary-700 mb-2">
+                  ↗ This meeting will set these LDP values for each attendee
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {linkedLdpCats.map((c) => {
+                    const cid = String(c._id);
+                    return (
+                      <div key={cid}>
+                        <label className="text-xs font-medium text-gray-700">{c.name}</label>
+                        <select
+                          className="input-field bg-white text-sm"
+                          value={ldpDraft[cid] || ''}
+                          onChange={(e) => setLdpDraft({ ...ldpDraft, [cid]: e.target.value })}
+                        >
+                          <option value="">— don't change —</option>
+                          {(c.options || [])
+                            .slice()
+                            .sort((a, b) => (a.order || 0) - (b.order || 0))
+                            .map((o) => (
+                              <option key={o.label} value={o.label}>{o.label}</option>
+                            ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-500 mt-2">
+                  Pick the LDP value attendees should get from this meeting. Leave blank to skip.
+                </p>
+              </div>
+            )}
 
             <div>
               <Controller
@@ -476,12 +542,66 @@ const ManageTypesModal = ({ onClose }) => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(null); // type object or null
   const [error, setError] = useState(null);
+  // Which LDP categories should this type feed (selected by user in form).
+  const [feedsLdp, setFeedsLdp] = useState([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['meeting-types', 'all'],
     queryFn: () => meetingTypeService.list({ includeInactive: true }),
   });
   const types = data?.data || [];
+
+  // Inverse map: meetingTypeId → [LDP category names that link here]
+  const { data: ldpCatsData } = useQuery({
+    queryKey: ['ldp-categories', 'all'],
+    queryFn: () => ldpCategoryService.list({ includeInactive: true }),
+  });
+  const ldpFeedsByType = useMemo(() => {
+    const map = {};
+    (ldpCatsData?.data || []).forEach((cat) => {
+      if (cat.autoMode !== 'attendance') return;
+      (cat.linkedMeetingTypes || []).forEach((ref) => {
+        const id = ref?._id || ref;
+        if (!map[id]) map[id] = [];
+        map[id].push(cat.name);
+      });
+    });
+    return map;
+  }, [ldpCatsData]);
+
+  // All LDP categories are eligible — the user can flag a category for
+  // attendance-mode here even before configuring its thresholds.
+  const eligibleLdpCats = useMemo(
+    () => (ldpCatsData?.data || []).filter((c) => c.type !== 'text'),
+    [ldpCatsData]
+  );
+
+  // For a given typeId, return the LDP category ids that link to it.
+  const ldpCatIdsForType = (typeId) =>
+    (ldpCatsData?.data || [])
+      .filter((c) => (c.linkedMeetingTypes || []).some((ref) => String(ref?._id || ref) === String(typeId)))
+      .map((c) => c._id);
+
+  /** Sync this type's presence in each LDP category's linkedMeetingTypes. */
+  const syncLdpLinks = async (typeId) => {
+    const desired = new Set(feedsLdp.map(String));
+    const all = ldpCatsData?.data || [];
+    for (const cat of all) {
+      const links = (cat.linkedMeetingTypes || []).map((r) => String(r?._id || r));
+      const has = links.includes(String(typeId));
+      const want = desired.has(String(cat._id));
+      if (has === want) continue;
+      const nextLinks = want
+        ? [...links, String(typeId)]
+        : links.filter((id) => id !== String(typeId));
+      // If turning ON for a manual category, also flip it to attendance mode
+      // so the link actually does something. Don't downgrade to manual on remove.
+      const patch = { linkedMeetingTypes: nextLinks };
+      if (want && cat.autoMode !== 'attendance') patch.autoMode = 'attendance';
+      await ldpCategoryService.update(cat._id, patch);
+    }
+    queryClient.invalidateQueries({ queryKey: ['ldp-categories'] });
+  };
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: { name: '', description: '', isActive: true },
@@ -493,12 +613,27 @@ const ManageTypesModal = ({ onClose }) => {
 
   const createMutation = useMutation({
     mutationFn: meetingTypeService.create,
-    onSuccess: () => { invalidate(); reset({ name: '', description: '', isActive: true }); setError(null); },
+    onSuccess: async (res) => {
+      const newId = res?.data?._id;
+      if (newId) await syncLdpLinks(newId);
+      invalidate();
+      reset({ name: '', description: '', isActive: true });
+      setFeedsLdp([]);
+      setError(null);
+    },
     onError: (e) => setError(e.message),
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }) => meetingTypeService.update(id, payload),
-    onSuccess: () => { invalidate(); setEditing(null); reset({ name: '', description: '', isActive: true }); setError(null); },
+    onSuccess: async (res) => {
+      const id = res?.data?._id || editing?._id;
+      if (id) await syncLdpLinks(id);
+      invalidate();
+      setEditing(null);
+      reset({ name: '', description: '', isActive: true });
+      setFeedsLdp([]);
+      setError(null);
+    },
     onError: (e) => setError(e.message),
   });
   const deleteMutation = useMutation({
@@ -510,12 +645,14 @@ const ManageTypesModal = ({ onClose }) => {
   const startEdit = (t) => {
     setEditing(t);
     reset({ name: t.name, description: t.description || '', isActive: t.isActive });
+    setFeedsLdp(ldpCatIdsForType(t._id));
     setError(null);
   };
 
   const cancelEdit = () => {
     setEditing(null);
     reset({ name: '', description: '', isActive: true });
+    setFeedsLdp([]);
     setError(null);
   };
 
@@ -559,6 +696,48 @@ const ManageTypesModal = ({ onClose }) => {
               <input type="checkbox" className="w-4 h-4 text-primary-600 rounded" {...register('isActive')} />
               Active (uncheck to hide from new meetings)
             </label>
+
+            {eligibleLdpCats.length > 0 && (
+              <div className="border-t border-gray-200 pt-2 mt-1">
+                <p className="text-[11px] font-semibold text-gray-600 mb-1">
+                  Feeds these LDP categories
+                </p>
+                <p className="text-[10px] text-gray-500 mb-1.5">
+                  Tick a category to make attendance at this meeting type count toward it.
+                  Manual categories will be flipped to auto mode automatically.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {eligibleLdpCats.map((c) => {
+                    const checked = feedsLdp.map(String).includes(String(c._id));
+                    return (
+                      <label
+                        key={c._id}
+                        className={`text-[11px] px-2 py-1 rounded border cursor-pointer ${
+                          checked
+                            ? 'bg-primary-50 border-primary-300 text-primary-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="hidden"
+                          checked={checked}
+                          onChange={(e) => {
+                            setFeedsLdp(
+                              e.target.checked
+                                ? [...feedsLdp, c._id]
+                                : feedsLdp.filter((id) => String(id) !== String(c._id))
+                            );
+                          }}
+                        />
+                        ↗ {c.name}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {error && <p className="text-xs text-accent-red bg-red-50 px-2 py-1 rounded">{error}</p>}
             <div className="flex gap-2 justify-end">
               {editing && (
@@ -580,25 +759,38 @@ const ManageTypesModal = ({ onClose }) => {
               <p className="text-sm text-gray-500">No types yet — add one above.</p>
             ) : (
               <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
-                {types.map((t) => (
-                  <li key={t._id} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-800 truncate">
-                        {t.name}{' '}
-                        {!t.isActive && (
-                          <span className="text-[10px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded ml-1">
-                            inactive
-                          </span>
+                {types.map((t) => {
+                  const feeds = ldpFeedsByType[t._id] || [];
+                  return (
+                    <li key={t._id} className="flex items-center justify-between px-3 py-2 text-sm gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 truncate">
+                          {t.name}{' '}
+                          {!t.isActive && (
+                            <span className="text-[10px] font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded ml-1">
+                              inactive
+                            </span>
+                          )}
+                        </p>
+                        {t.description && <p className="text-xs text-gray-500 truncate">{t.description}</p>}
+                        {feeds.length > 0 && (
+                          <p className="text-[10px] text-primary-700 mt-1 flex flex-wrap gap-1 items-center">
+                            <span className="text-gray-500">Feeds LDP:</span>
+                            {feeds.map((name) => (
+                              <span key={name} className="bg-primary-50 border border-primary-200 px-1.5 py-0.5 rounded">
+                                ↗ {name}
+                              </span>
+                            ))}
+                          </p>
                         )}
-                      </p>
-                      {t.description && <p className="text-xs text-gray-500 truncate">{t.description}</p>}
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button onClick={() => startEdit(t)} className="text-xs text-primary-600 hover:underline">Edit</button>
-                      <button onClick={() => handleDelete(t)} className="text-xs text-accent-red hover:underline">Delete</button>
-                    </div>
-                  </li>
-                ))}
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button onClick={() => startEdit(t)} className="text-xs text-primary-600 hover:underline">Edit</button>
+                        <button onClick={() => handleDelete(t)} className="text-xs text-accent-red hover:underline">Delete</button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

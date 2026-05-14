@@ -34,6 +34,19 @@ const eventSchema = new mongoose.Schema(
     },
     location: { type: String, trim: true, maxlength: 200, default: '' },
     link: { type: String, trim: true, maxlength: 500, default: '' },
+
+    // LDP Assignments — when attendance is marked, each attendee's value
+    // for these LDP categories is set directly to optionLabel.
+    // Populated from the event form based on the selected EventType's
+    // LDP wirings.
+    ldpAssignments: [
+      {
+        _id: false,
+        category: { type: mongoose.Schema.Types.ObjectId, ref: 'LdpCategory', required: true },
+        optionLabel: { type: String, required: true, trim: true },
+      },
+    ],
+
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }

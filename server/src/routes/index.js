@@ -12,6 +12,7 @@ const reportRoutes = require('./reports');
 const outreachRoutes = require('./outreach');
 const outreachAttendeeRoutes = require('./outreachAttendees');
 const outreachSessionRoutes = require('./outreachSessions');
+const ldpCategoryRoutes = require('./ldpCategories');
 const { protect } = require('../middleware/auth');
 
 const router = Router();
@@ -33,5 +34,6 @@ router.use('/reports', protect, reportRoutes);
 router.use('/outreach', protect, outreachRoutes);
 router.use('/outreach-attendees', protect, outreachAttendeeRoutes);
 router.use('/outreach-sessions', protect, outreachSessionRoutes);
+router.use('/ldp-categories', protect, ldpCategoryRoutes);
 
 module.exports = router;

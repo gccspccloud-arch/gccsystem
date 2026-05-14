@@ -1,5 +1,6 @@
 const MeetingType = require('../models/MeetingType');
 const Meeting = require('../models/Meeting');
+const { syncDescriptionByName } = require('../utils/syncDescription');
 const { success, error } = require('../utils/apiResponse');
 
 const list = async (req, res, next) => {
@@ -18,6 +19,11 @@ const create = async (req, res, next) => {
     const exists = await MeetingType.findOne({ name: new RegExp(`^${req.body.name}$`, 'i') });
     if (exists) return error(res, 'A meeting type with that name already exists', 409);
     const item = await MeetingType.create({ ...req.body, createdBy: req.user._id });
+    syncDescriptionByName({
+      name: item.name,
+      description: item.description,
+      exclude: { collection: 'MeetingType', id: item._id },
+    });
     return success(res, item, 'Meeting type created', 201);
   } catch (err) {
     next(err);
@@ -38,6 +44,11 @@ const update = async (req, res, next) => {
       runValidators: true,
     });
     if (!item) return error(res, 'Meeting type not found', 404);
+    syncDescriptionByName({
+      name: item.name,
+      description: item.description,
+      exclude: { collection: 'MeetingType', id: item._id },
+    });
     return success(res, item, 'Meeting type updated');
   } catch (err) {
     next(err);
