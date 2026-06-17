@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 const Member = require('../models/Member');
 const Meeting = require('../models/Meeting');
+const MeetingType = require('../models/MeetingType');
 const Event = require('../models/Event');
+const EventType = require('../models/EventType');
 const Attendance = require('../models/Attendance');
 const Announcement = require('../models/Announcement');
 const Outreach = require('../models/Outreach');
@@ -402,10 +404,91 @@ const outreachReport = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /reports/member-attendance-by-type
+ * Per-member attendance counts broken down by meeting type / event type name.
+ */
+const memberAttendanceByType = async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const fromDate = from ? startOfDay(from) : null;
+    const toDate = to ? endOfDay(to) : null;
+
+    const [records, meetings, events, meetingTypes, eventTypes] = await Promise.all([
+      Attendance.find({ member: { $ne: null } })
+        .populate({ path: 'member', select: 'firstName lastName middleName memberStatus gender' })
+        .populate({ path: 'target.ref', select: 'scheduledAt meetingType eventType' })
+        .lean(),
+      Meeting.find({}, 'meetingType').populate('meetingType', 'name').lean(),
+      Event.find({}, 'eventType').populate('eventType', 'name').lean(),
+      MeetingType.find({}, 'name').sort({ name: 1 }).lean(),
+      EventType.find({}, 'name').sort({ name: 1 }).lean(),
+    ]);
+
+    const meetingTypeMap = new Map(meetings.map((m) => [String(m._id), m.meetingType?.name]));
+    const eventTypeMap = new Map(events.map((e) => [String(e._id), e.eventType?.name]));
+
+    const typeNames = [
+      ...meetingTypes.map((t) => t.name),
+      ...eventTypes.map((t) => t.name),
+    ];
+    const uniqueTypes = [...new Set(typeNames)];
+
+    const perMember = new Map();
+    records.forEach((r) => {
+      const when = eventDate(r);
+      if (!inRange(when, fromDate, toDate)) return;
+      if (!r.member) return;
+
+      const id = String(r.member._id);
+      if (!perMember.has(id)) {
+        perMember.set(id, {
+          memberId: r.member._id,
+          firstName: r.member.firstName,
+          lastName: r.member.lastName,
+          middleName: r.member.middleName,
+          memberStatus: r.member.memberStatus,
+          gender: r.member.gender,
+          total: 0,
+          byType: {},
+        });
+      }
+      const row = perMember.get(id);
+      row.total += 1;
+
+      let typeName = null;
+      const refId = r.target?.ref ? String(r.target.ref._id) : null;
+      if (r.target?.kind === 'Meeting' && refId) {
+        typeName = meetingTypeMap.get(refId);
+      } else if (r.target?.kind === 'Event' && refId) {
+        typeName = eventTypeMap.get(refId);
+      } else if (r.target?.kind === 'OutreachSession') {
+        typeName = 'Outreach';
+      }
+      if (typeName) {
+        row.byType[typeName] = (row.byType[typeName] || 0) + 1;
+      }
+    });
+
+    const rows = Array.from(perMember.values()).sort((a, b) => {
+      if (b.total !== a.total) return b.total - a.total;
+      return (a.lastName || '').localeCompare(b.lastName || '');
+    });
+
+    const hasOutreach = rows.some((r) => r.byType.Outreach);
+    const types = hasOutreach ? [...uniqueTypes, 'Outreach'] : uniqueTypes;
+
+    return success(res, { rows, types }, 'Member attendance by type');
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   dashboard,
   celebrants,
   attendanceReport,
   memberAttendanceSummary,
+  memberAttendanceByType,
   outreachReport,
 };

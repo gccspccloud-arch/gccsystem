@@ -12,6 +12,7 @@
     "seed:ldp-categories": "node src/seed/seedLdpCategories.js",
     "seed:members": "node src/seed/seedMembersFromSheet.js",
     "seed:ldp-wiring": "node src/seed/seedLdpWiring.js",
+    "seed:sample-data": "node src/seed/seedSampleData.js",
     "lint": "eslint src/**/*.js"
   },
   "dependencies": {

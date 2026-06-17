@@ -11,6 +11,7 @@ router.get('/celebrants', ctrl.celebrants);
 // Detailed reports are admin-only.
 router.get('/attendance', authorize('super_admin', 'admin'), ctrl.attendanceReport);
 router.get('/member-attendance-summary', authorize('super_admin', 'admin'), ctrl.memberAttendanceSummary);
+router.get('/member-attendance-by-type', authorize('super_admin', 'admin'), ctrl.memberAttendanceByType);
 router.get('/outreach', authorize('super_admin', 'admin'), ctrl.outreachReport);
 
 module.exports = router;
