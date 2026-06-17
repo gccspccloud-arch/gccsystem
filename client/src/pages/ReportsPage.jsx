@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
@@ -6,18 +6,98 @@ import { reportService } from '@/services/reportService';
 import { memberService } from '@/services/memberService';
 import { outreachService } from '@/services/outreachService';
 import { downloadCsv } from '@/utils/csv';
+import PrintHeader from '@/components/PrintHeader';
+import { useAuth } from '@/context/AuthContext';
 
 const TABS = [
   { id: 'matrix', label: 'Matrix' },
   { id: 'attendance', label: 'Attendance' },
   { id: 'byEvent', label: 'By Event/Meeting' },
   { id: 'regulars', label: 'Regulars' },
+  { id: 'memberSummary', label: 'Member Summary' },
   { id: 'visitors', label: 'Visitors' },
   { id: 'outreach', label: 'Outreach' },
   { id: 'celebrants', label: 'Celebrants' },
 ];
 
 const STATUS_OPTIONS = ['', 'New Attendee', 'Regular Attendee', 'Member'];
+
+const PRINT_STYLE_ID = 'dynamic-print-orientation';
+
+const doPrint = (orientation) => {
+  // Inject a <style> that sets @page size before printing, then remove it after
+  let style = document.getElementById(PRINT_STYLE_ID);
+  if (!style) {
+    style = document.createElement('style');
+    style.id = PRINT_STYLE_ID;
+    document.head.appendChild(style);
+  }
+  style.textContent = `@media print { @page { size: ${orientation}; } }`;
+  // Small delay so the browser picks up the injected style
+  setTimeout(() => {
+    window.print();
+  }, 50);
+};
+
+const PrintButton = ({ disabled, defaultOrientation = 'portrait' }) => {
+  const [orientation, setOrientation] = useState(defaultOrientation);
+
+  return (
+    <div className="flex items-center gap-1 no-print">
+      {/* Orientation toggle */}
+      <div className="flex border border-gray-300 rounded-md overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setOrientation('portrait')}
+          title="Portrait"
+          className={`px-2 py-2 text-sm transition-colors ${
+            orientation === 'portrait'
+              ? 'bg-primary-50 text-primary-700'
+              : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          {/* Portrait icon — tall rectangle */}
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <rect x="6" y="3" width="12" height="18" rx="1" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOrientation('landscape')}
+          title="Landscape"
+          className={`px-2 py-2 text-sm border-l border-gray-300 transition-colors ${
+            orientation === 'landscape'
+              ? 'bg-primary-50 text-primary-700'
+              : 'bg-white text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          {/* Landscape icon — wide rectangle */}
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <rect x="3" y="6" width="18" height="12" rx="1" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Print button */}
+      <button
+        type="button"
+        onClick={() => doPrint(orientation)}
+        disabled={disabled}
+        className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 text-sm font-semibold rounded-md disabled:opacity-50"
+      >
+        🖨 Print
+      </button>
+    </div>
+  );
+};
+
+const formatDateRange = (from, to) => {
+  if (!from && !to) return '';
+  const f = from ? new Date(from).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const t = to ? new Date(to).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  if (f && t) return `${f} — ${t}`;
+  return f || t;
+};
 
 const firstOfMonth = () => {
   const d = new Date();
@@ -83,7 +163,9 @@ const AttendanceReport = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-white p-4 rounded-xl border border-gray-100">
+      <PrintHeader reportTitle="Attendance Report" dateRange={formatDateRange(filters.from, filters.to)} />
+
+      <div className="no-print grid grid-cols-2 md:grid-cols-5 gap-3 bg-white p-4 rounded-xl border border-gray-100">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
           <input type="date" value={filters.from}
@@ -150,7 +232,8 @@ const AttendanceReport = () => {
         </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 no-print">
+        <PrintButton disabled={!records.length} />
         <button
           onClick={exportCsv}
           disabled={!records.length}
@@ -235,7 +318,9 @@ const RegularsReport = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 bg-white p-4 rounded-xl border border-gray-100 max-w-md">
+      <PrintHeader reportTitle="Regulars Report" dateRange={formatDateRange(filters.from, filters.to)} />
+
+      <div className="no-print grid grid-cols-2 gap-3 bg-white p-4 rounded-xl border border-gray-100 max-w-md">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
           <input type="date" value={filters.from}
@@ -250,7 +335,8 @@ const RegularsReport = () => {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 no-print">
+        <PrintButton disabled={!rows.length} />
         <button
           onClick={exportCsv}
           disabled={!rows.length}
@@ -343,7 +429,9 @@ const VisitorsReport = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 bg-white p-4 rounded-xl border border-gray-100 max-w-md">
+      <PrintHeader reportTitle="Visitors Report" dateRange={formatDateRange(filters.from, filters.to)} />
+
+      <div className="no-print grid grid-cols-2 gap-3 bg-white p-4 rounded-xl border border-gray-100 max-w-md">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
           <input type="date" value={filters.from}
@@ -358,7 +446,8 @@ const VisitorsReport = () => {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 no-print">
+        <PrintButton disabled={!records.length} />
         <button
           onClick={exportCsv}
           disabled={!records.length}
@@ -423,6 +512,185 @@ const VisitorsReport = () => {
 
 // ---- By Event / Meeting tab ----------------------------------------------
 
+const EventPrintReport = ({ group: g, printedBy }) => (
+  <div className="event-print-report">
+    <PrintHeader reportTitle={`${g.kind} Attendance Report`} dateRange={formatDateTime(g.scheduledAt)} />
+
+    <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+      <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1a1a1a', margin: '0 0 4px' }}>{g.title}</h3>
+      <p style={{ fontSize: '11px', color: '#666', margin: 0 }}>
+        {formatDateTime(g.scheduledAt)}
+        {g.location && ` · ${g.location}`}
+      </p>
+    </div>
+
+    <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginBottom: '16px', fontSize: '12px' }}>
+      <span><strong>{g.total}</strong> Total</span>
+      <span><strong>{g.byStatus.Member}</strong> Members</span>
+      <span><strong>{g.byStatus['Regular Attendee']}</strong> Regulars</span>
+      <span><strong>{g.byStatus['New Attendee']}</strong> New</span>
+      <span><strong>{g.visitors.length}</strong> Visitors</span>
+    </div>
+
+    {g.members.length > 0 && (
+      <div style={{ marginBottom: '12px' }}>
+        <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#444', marginBottom: '4px' }}>Members Present ({g.members.length})</p>
+        <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#f3f4f6' }}>
+              <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #e5e7eb' }}>#</th>
+              <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #e5e7eb' }}>Name</th>
+              <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #e5e7eb' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {g.members.map((r, i) => (
+              <tr key={r._id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '3px 8px', color: '#999' }}>{i + 1}</td>
+                <td style={{ padding: '3px 8px' }}>{r.member.lastName}, {r.member.firstName}</td>
+                <td style={{ padding: '3px 8px', color: '#666' }}>{r.member.memberStatus}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {g.visitors.length > 0 && (
+      <div>
+        <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#444', marginBottom: '4px' }}>Visitors ({g.visitors.length})</p>
+        <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#f3f4f6' }}>
+              <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #e5e7eb' }}>#</th>
+              <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #e5e7eb' }}>Name</th>
+            </tr>
+          </thead>
+          <tbody>
+            {g.visitors.map((r, i) => (
+              <tr key={r._id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '3px 8px', color: '#999' }}>{i + 1}</td>
+                <td style={{ padding: '3px 8px', fontStyle: 'italic' }}>{r.visitorName}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+);
+
+const printSingleEvent = (g, printedBy) => {
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (!printWindow) return;
+
+  const logoUrl = new URL('/src/assets/logo.jpg', window.location.origin).href;
+
+  const membersRows = g.members.map((r, i) => `
+    <tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:3px 8px;color:#999">${i + 1}</td>
+      <td style="padding:3px 8px">${r.member.lastName}, ${r.member.firstName}</td>
+      <td style="padding:3px 8px;color:#666">${r.member.memberStatus}</td>
+    </tr>
+  `).join('');
+
+  const visitorsRows = g.visitors.map((r, i) => `
+    <tr style="border-bottom:1px solid #f0f0f0">
+      <td style="padding:3px 8px;color:#999">${i + 1}</td>
+      <td style="padding:3px 8px;font-style:italic">${r.visitorName}</td>
+    </tr>
+  `).join('');
+
+  const now = new Date().toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html><head><title>${g.title} - Attendance Report</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; color:#1a1a1a; padding:0.5in; }
+  @media print {
+    @page { margin: 0.5in 0.5in 0.7in 0.5in; }
+    body { padding:0; }
+    .no-print { display:none !important; }
+  }
+  .print-footer {
+    position:fixed; bottom:0; left:0; right:0;
+    font-size:9px; color:#999; padding:0 0.5in;
+  }
+</style>
+</head><body>
+  <div style="text-align:center;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px">
+      <img src="${logoUrl}" alt="GCC Logo" style="width:60px;height:60px;object-fit:contain" />
+      <div>
+        <h1 style="font-size:18px;font-weight:bold;line-height:1.3">Gospel Coalition Church</h1>
+        <p style="font-size:10px;color:#999;font-style:italic;margin-top:2px">"Sharing Christ, Changing Lives"</p>
+        <p style="font-size:11px;color:#666;margin-top:2px">San Pablo City, Laguna, Philippines</p>
+      </div>
+      <div style="width:60px"></div>
+    </div>
+    <div style="border-top:2px solid #0d9488;padding-top:8px;margin-bottom:16px">
+      <h2 style="font-size:16px;font-weight:bold;color:#0d9488">${g.kind} Attendance Report</h2>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-bottom:16px">
+    <h3 style="font-size:15px;font-weight:bold;margin-bottom:4px">${g.title}</h3>
+    <p style="font-size:11px;color:#666">
+      ${formatDateTime(g.scheduledAt)}${g.location ? ' &middot; ' + g.location : ''}
+    </p>
+  </div>
+
+  <div style="display:flex;justify-content:center;gap:24px;margin-bottom:20px;font-size:12px">
+    <span><strong>${g.total}</strong> Total</span>
+    <span><strong>${g.byStatus.Member}</strong> Members</span>
+    <span><strong>${g.byStatus['Regular Attendee']}</strong> Regulars</span>
+    <span><strong>${g.byStatus['New Attendee']}</strong> New</span>
+    <span><strong>${g.visitors.length}</strong> Visitors</span>
+  </div>
+
+  ${g.members.length > 0 ? `
+  <div style="margin-bottom:16px">
+    <p style="font-size:11px;font-weight:bold;color:#444;margin-bottom:4px">Members Present (${g.members.length})</p>
+    <table style="width:100%;font-size:11px;border-collapse:collapse">
+      <thead>
+        <tr style="background:#f3f4f6">
+          <th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e5e7eb;width:30px">#</th>
+          <th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e5e7eb">Name</th>
+          <th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e5e7eb">Status</th>
+        </tr>
+      </thead>
+      <tbody>${membersRows}</tbody>
+    </table>
+  </div>` : ''}
+
+  ${g.visitors.length > 0 ? `
+  <div>
+    <p style="font-size:11px;font-weight:bold;color:#444;margin-bottom:4px">Visitors (${g.visitors.length})</p>
+    <table style="width:100%;font-size:11px;border-collapse:collapse">
+      <thead>
+        <tr style="background:#f3f4f6">
+          <th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e5e7eb;width:30px">#</th>
+          <th style="text-align:left;padding:4px 8px;border-bottom:1px solid #e5e7eb">Name</th>
+        </tr>
+      </thead>
+      <tbody>${visitorsRows}</tbody>
+    </table>
+  </div>` : ''}
+
+  <div class="print-footer">
+    <span>Printed on ${now}${printedBy ? ' by ' + printedBy : ''}</span>
+  </div>
+
+  <div class="no-print" style="margin-top:24px;text-align:center">
+    <button onclick="window.print()" style="padding:8px 24px;background:#0d9488;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-weight:600">
+      Print Report
+    </button>
+  </div>
+</body></html>`);
+  printWindow.document.close();
+};
+
 const ByEventReport = () => {
   const [filters, setFilters] = useState({
     from: firstOfMonth(),
@@ -430,6 +698,8 @@ const ByEventReport = () => {
     targetKind: '',
   });
   const [expanded, setExpanded] = useState({});
+  const { user } = useAuth();
+  const printedBy = user ? `${user.firstName} ${user.lastName}` : '';
 
   const { data, isFetching } = useQuery({
     queryKey: ['report-by-event', filters],
@@ -520,7 +790,7 @@ const ByEventReport = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-white p-4 rounded-xl border border-gray-100">
+      <div className="no-print grid grid-cols-2 md:grid-cols-3 gap-3 bg-white p-4 rounded-xl border border-gray-100">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
           <input type="date" value={filters.from}
@@ -545,7 +815,7 @@ const ByEventReport = () => {
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2 no-print">
         <button
           onClick={exportSummary}
           disabled={!groups.length}
@@ -574,28 +844,39 @@ const ByEventReport = () => {
             const isOpen = !!expanded[g.id];
             return (
               <div key={g.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                <button
-                  onClick={() => toggle(g.id)}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3"
-                >
-                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                    g.kind === 'Meeting' ? 'bg-primary-50 text-primary-700' : 'bg-amber-50 text-amber-700'
-                  }`}>
-                    {g.kind}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-800 truncate">{g.title}</p>
-                    <p className="text-xs text-gray-500">
-                      {formatDateTime(g.scheduledAt)}
-                      {g.location && ` · ${g.location}`}
-                    </p>
-                  </div>
-                  <div className="hidden sm:flex items-center gap-3 text-xs">
-                    <span><strong className="text-lg text-primary-700">{g.total}</strong> total</span>
-                    <span className="text-gray-500">{g.members.length} M · {g.visitors.length} V</span>
-                  </div>
-                  <span className="text-xl text-gray-400">{isOpen ? '▾' : '▸'}</span>
-                </button>
+                <div className="flex items-center px-4 py-3 hover:bg-gray-50 gap-3">
+                  <button
+                    onClick={() => toggle(g.id)}
+                    className="flex-1 min-w-0 flex items-center gap-3 text-left"
+                  >
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                      g.kind === 'Meeting' ? 'bg-primary-50 text-primary-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      {g.kind}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">{g.title}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatDateTime(g.scheduledAt)}
+                        {g.location && ` · ${g.location}`}
+                      </p>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-3 text-xs">
+                      <span><strong className="text-lg text-primary-700">{g.total}</strong> total</span>
+                      <span className="text-gray-500">{g.members.length} M · {g.visitors.length} V</span>
+                    </div>
+                    <span className="text-xl text-gray-400">{isOpen ? '▾' : '▸'}</span>
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); printSingleEvent(g, printedBy); }}
+                    title={`Print this ${g.kind.toLowerCase()}`}
+                    className="no-print flex-shrink-0 p-2 bg-white hover:bg-gray-100 border border-gray-200 text-gray-500 hover:text-primary-700 rounded-md transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                  </button>
+                </div>
 
                 {isOpen && (
                   <div className="border-t border-gray-100 p-4 bg-gray-50/40">
@@ -638,7 +919,7 @@ const ByEventReport = () => {
                       </div>
                     )}
 
-                    <div className="mt-3 text-right">
+                    <div className="mt-3 text-right no-print">
                       <Link
                         to={`/attendance/${g.kind === 'Meeting' ? 'meeting' : 'event'}/${g.id}`}
                         className="text-xs font-semibold text-primary-700 hover:underline"
@@ -697,7 +978,9 @@ const CelebrantsReport = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 bg-white p-4 rounded-xl border border-gray-100 max-w-md">
+      <PrintHeader reportTitle="Celebrants Report" dateRange={formatDateRange(filters.from, filters.to)} />
+
+      <div className="no-print grid grid-cols-2 gap-3 bg-white p-4 rounded-xl border border-gray-100 max-w-md">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
           <input type="date" value={filters.from}
@@ -712,7 +995,8 @@ const CelebrantsReport = () => {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 no-print">
+        <PrintButton disabled={!items.length} />
         <button
           onClick={exportCsv}
           disabled={!items.length}
@@ -861,7 +1145,9 @@ const MatrixReport = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-gray-100">
+      <PrintHeader reportTitle="Attendance Matrix" dateRange={formatDateRange(filters.from, filters.to)} />
+
+      <div className="no-print grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-gray-100">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
           <input type="date" value={filters.from}
@@ -885,7 +1171,8 @@ const MatrixReport = () => {
             Include all members (even if absent)
           </label>
         </div>
-        <div className="flex items-end justify-end">
+        <div className="flex items-end justify-end gap-2">
+          <PrintButton disabled={!rows.length} defaultOrientation="landscape" />
           <button
             onClick={exportCsv}
             disabled={!rows.length}
@@ -1034,7 +1321,9 @@ const OutreachReport = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-gray-100">
+      <PrintHeader reportTitle="Outreach Report" dateRange={formatDateRange(filters.from, filters.to)} />
+
+      <div className="no-print grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-xl border border-gray-100">
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
           <input type="date" value={filters.from}
@@ -1060,7 +1349,8 @@ const OutreachReport = () => {
         </div>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2 no-print">
+        <PrintButton disabled={!rows.length} />
         <button
           onClick={exportRowsCsv}
           disabled={!rows.length}
@@ -1121,7 +1411,7 @@ const OutreachReport = () => {
             <button
               onClick={exportAttendeesCsv}
               disabled={!attendees.length}
-              className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white text-xs font-semibold rounded-md"
+              className="no-print px-3 py-1.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white text-xs font-semibold rounded-md"
             >
               ⬇ Export CSV
             </button>
@@ -1173,19 +1463,239 @@ const OutreachReport = () => {
   );
 };
 
+// ---- Member Summary tab ---------------------------------------------------
+
+const ColumnPicker = ({ types, visibleTypes, setVisibleTypes }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const effective = visibleTypes === null ? types : visibleTypes;
+  const allSelected = effective.length === types.length;
+
+  const toggleAll = () => {
+    setVisibleTypes(allSelected ? [] : [...types]);
+  };
+
+  const toggle = (t) => {
+    const current = visibleTypes === null ? [...types] : visibleTypes;
+    setVisibleTypes(
+      current.includes(t) ? current.filter((x) => x !== t) : [...current, t]
+    );
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="px-3 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 text-sm font-semibold rounded-md flex items-center gap-1.5"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        Columns ({effective.length}/{types.length})
+        <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-64 max-h-72 overflow-y-auto">
+            <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer border-b border-gray-100 mb-1">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                className="h-4 w-4 rounded border-gray-300 text-primary-600"
+              />
+              <span className="text-sm font-semibold text-gray-700">Select All</span>
+            </label>
+            {types.map((t) => (
+              <label key={t} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={effective.includes(t)}
+                  onChange={() => toggle(t)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                />
+                <span className="text-sm text-gray-700">{t}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const MemberSummaryReport = () => {
+  const [filters, setFilters] = useState({ from: firstOfMonth(), to: today() });
+  const [visibleTypes, setVisibleTypes] = useState(null);
+  const [colWidths, setColWidths] = useState({});
+  const dragRef = useRef(null);
+
+  const { data, isFetching } = useQuery({
+    queryKey: ['report-member-by-type', filters],
+    queryFn: () => reportService.memberAttendanceByType(filters),
+  });
+
+  const rows = data?.data?.rows || [];
+  const types = data?.data?.types || [];
+
+  // null means "user hasn't touched the picker yet" → show all
+  const shownTypes = visibleTypes === null ? types : types.filter((t) => visibleTypes.includes(t));
+
+  const startResize = (colKey, e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const th = e.target.parentElement;
+    const startW = th.getBoundingClientRect().width;
+    const onMove = (ev) => {
+      const newW = Math.max(40, startW + ev.clientX - startX);
+      setColWidths((prev) => ({ ...prev, [colKey]: newW }));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const exportCsv = () => {
+    const cols = [
+      { key: 'name', label: 'Name', value: (r) => `${r.lastName}, ${r.firstName}` },
+      { key: 'memberStatus', label: 'Status' },
+      ...shownTypes.map((t) => ({
+        key: t,
+        label: t,
+        value: (r) => r.byType[t] || 0,
+      })),
+      { key: 'total', label: 'Total', value: (r) => shownTypes.reduce((sum, t) => sum + (r.byType[t] || 0), 0) },
+    ];
+    downloadCsv(`member_summary_${filters.from}_to_${filters.to}`, cols, rows);
+  };
+
+  return (
+    <div className="space-y-4">
+      <PrintHeader reportTitle="Member Attendance Summary" dateRange={formatDateRange(filters.from, filters.to)} />
+
+      <div className="no-print grid grid-cols-2 md:grid-cols-3 gap-3 bg-white p-4 rounded-xl border border-gray-100">
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
+          <input type="date" value={filters.from}
+            onChange={(e) => setFilters({ ...filters, from: e.target.value })}
+            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">To</label>
+          <input type="date" value={filters.to}
+            onChange={(e) => setFilters({ ...filters, to: e.target.value })}
+            className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm" />
+        </div>
+        <div className="flex items-end col-span-2 md:col-span-1">
+          <ColumnPicker types={types} visibleTypes={visibleTypes} setVisibleTypes={setVisibleTypes} />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 no-print">
+        <PrintButton disabled={!rows.length} defaultOrientation={shownTypes.length > 6 ? 'landscape' : 'portrait'} />
+        <button
+          onClick={exportCsv}
+          disabled={!rows.length}
+          className="px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white text-sm font-semibold rounded-md"
+        >
+          ⬇ Export CSV
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        {isFetching ? (
+          <p className="p-6 text-center text-gray-400">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="p-6 text-center text-gray-400">No attendance in this range.</p>
+        ) : shownTypes.length === 0 ? (
+          <p className="p-6 text-center text-gray-400">Select at least one column to display.</p>
+        ) : (
+          <div className="overflow-auto max-h-[70vh]">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: colWidths._name || 200 }} />
+                <col style={{ width: colWidths._status || 120 }} />
+                {shownTypes.map((t) => (
+                  <col key={t} style={colWidths[t] ? { width: colWidths[t] } : undefined} />
+                ))}
+                <col style={{ width: colWidths._total || 55 }} />
+              </colgroup>
+              <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold sticky left-0 bg-gray-50 z-20 relative select-none">
+                    Name
+                    <span onMouseDown={(e) => startResize('_name', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary-300" />
+                  </th>
+                  <th className="text-left px-2 py-2 font-semibold relative select-none">
+                    Status
+                    <span onMouseDown={(e) => startResize('_status', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary-300" />
+                  </th>
+                  {shownTypes.map((t) => (
+                    <th key={t} className="text-center px-1 py-2 font-semibold truncate relative select-none" title={t}>
+                      {t}
+                      <span onMouseDown={(e) => startResize(t, e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary-300" />
+                    </th>
+                  ))}
+                  <th className="text-center px-1 py-2 font-semibold relative select-none">
+                    Total
+                    <span onMouseDown={(e) => startResize('_total', e)} className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary-300" />
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r, idx) => (
+                  <tr key={r.memberId} className={idx % 2 ? 'bg-gray-50/40' : 'bg-white'}>
+                    <td className={`px-3 py-2 font-medium sticky left-0 z-10 truncate ${idx % 2 ? 'bg-gray-50' : 'bg-white'}`} title={`${r.lastName}, ${r.firstName}`}>
+                      <Link to={`/members/${r.memberId}`} className="text-primary-700 hover:underline">
+                        {r.lastName}, {r.firstName}
+                      </Link>
+                    </td>
+                    <td className="px-2 py-2 truncate" title={r.memberStatus}>
+                      <Pill tone={r.memberStatus === 'Member' ? 'primary' : r.memberStatus === 'Regular Attendee' ? 'amber' : 'sky'}>
+                        {r.memberStatus}
+                      </Pill>
+                    </td>
+                    {shownTypes.map((t) => (
+                      <td key={t} className={`px-1 py-2 text-center ${r.byType[t] ? 'font-semibold text-gray-800' : 'text-gray-300'}`}>
+                        {r.byType[t] || 0}
+                      </td>
+                    ))}
+                    <td className="px-1 py-2 text-center font-bold text-primary-700">{shownTypes.reduce((sum, t) => sum + (r.byType[t] || 0), 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ---- Shell ----------------------------------------------------------------
 
 const ReportsPage = () => {
   const [tab, setTab] = useState('attendance');
+  const { user } = useAuth();
+  const printedBy = user ? `${user.firstName} ${user.lastName}` : '';
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
-      <div className="mb-4">
+      <div className="mb-4 no-print">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Reports</h1>
         <p className="text-gray-500 text-sm mt-1">Attendance, regulars, visitors, and celebrants.</p>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto">
+      <div className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto no-print">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -1205,9 +1715,17 @@ const ReportsPage = () => {
       {tab === 'attendance' && <AttendanceReport />}
       {tab === 'byEvent' && <ByEventReport />}
       {tab === 'regulars' && <RegularsReport />}
+      {tab === 'memberSummary' && <MemberSummaryReport />}
       {tab === 'visitors' && <VisitorsReport />}
       {tab === 'outreach' && <OutreachReport />}
       {tab === 'celebrants' && <CelebrantsReport />}
+
+      <div className="print-footer">
+        <span>
+          Printed on {new Date().toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+          {printedBy && ` by ${printedBy}`}
+        </span>
+      </div>
     </div>
   );
 };

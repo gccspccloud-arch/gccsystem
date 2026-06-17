@@ -29,3 +29,110 @@
     @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
   }
 }
+
+/* ---- Print styles for reports ---- */
+
+/* Hide print-only elements on screen */
+.print-header {
+  display: none;
+}
+.print-footer {
+  display: none;
+}
+
+@media print {
+  /* Show print header */
+  .print-header {
+    display: block !important;
+  }
+
+  /* Show print footer — sits at the very bottom of every printed page */
+  .print-footer {
+    display: block !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    font-size: 9px;
+    color: #999;
+    padding: 0;
+    text-align: left;
+  }
+
+  /* Reserve space at the bottom so content doesn't overlap the footer */
+  body::after {
+    content: '';
+    display: block;
+    height: 30px;
+  }
+
+  /* Hide sidebar, navbar, filters, buttons, and non-printable elements */
+  nav,
+  header,
+  .no-print,
+  aside,
+  .no-print * {
+    display: none !important;
+  }
+
+  /* Reset page layout */
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Style tables for print */
+  table {
+    font-size: 10px !important;
+    width: 100% !important;
+  }
+
+  table th {
+    background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure pill badges print with color */
+  span[class*="bg-primary"],
+  span[class*="bg-amber"],
+  span[class*="bg-sky"],
+  span[class*="bg-rose"],
+  span[class*="bg-gray"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Remove card borders and shadows for cleaner print */
+  .bg-white {
+    box-shadow: none !important;
+  }
+
+  /* Remove overflow restrictions for full table printing */
+  .overflow-auto,
+  .overflow-x-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Page break settings */
+  tr {
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* @page margin — extra bottom for the fixed footer; orientation injected by PrintButton */
+  @page {
+    margin: 0.5in 0.5in 0.7in 0.5in;
+  }
+}

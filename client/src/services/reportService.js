@@ -12,6 +12,9 @@ export const reportService = {
   memberAttendanceSummary: ({ from, to } = {}) =>
     api.get('/reports/member-attendance-summary', { params: { from, to } }),
 
+  memberAttendanceByType: ({ from, to } = {}) =>
+    api.get('/reports/member-attendance-by-type', { params: { from, to } }),
+
   outreach: ({ from, to, outreach } = {}) =>
     api.get('/reports/outreach', { params: { from, to, outreach } }),
 };

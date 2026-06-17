@@ -25,7 +25,12 @@
       "Bash(node -e ' *)",
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); require\\('./src/routes/index.js'\\); console.log\\('routes load OK'\\);\")",
       "Bash(node -e \"const {parse}=require\\('@babel/parser'\\); const fs=require\\('fs'\\); parse\\(fs.readFileSync\\('src/pages/AttendancePage.jsx','utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK'\\);\")",
-      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const env = require\\('./src/config/env'\\); console.log\\('CLIENT_URL parsed as:', env.CLIENT_URL\\); require\\('./src/app'\\); console.log\\('app loads OK'\\);\")"
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const env = require\\('./src/config/env'\\); console.log\\('CLIENT_URL parsed as:', env.CLIENT_URL\\); require\\('./src/app'\\); console.log\\('app loads OK'\\);\")",
+      "Bash(ls /c/Users/User/.claude/projects/C--Users-User-Desktop-gccsystem/memory/ 2>&1)",
+      "PowerShell(Remove-Item C:\\\\Users\\\\User\\\\Desktop\\\\gccsystem\\\\server\\\\src\\\\seed\\\\fixBirthdates.js -Confirm:$false)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "PowerShell(Stop-Process -Id 41056 -Force)",
+      "PowerShell(Stop-Process -Id 44964 -Force)"
     ]
   }
 }
