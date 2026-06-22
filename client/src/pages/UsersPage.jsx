@@ -9,7 +9,7 @@ import { ROLE_LABELS } from '@/utils/constants';
 import { useAuth } from '@/context/AuthContext';
 import PasswordInput from '@/components/PasswordInput';
 
-const formatDate = (d) => (d ? new Date(d).toLocaleString('en-PH') : '—');
+const formatDate = (d) => (d ? new Date(d).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : '—');
 
 const UsersPage = () => {
   const { user: currentUser, hasRole } = useAuth();

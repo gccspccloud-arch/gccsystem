@@ -8,7 +8,7 @@ import { attendanceService } from '@/services/attendanceService';
 import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (d) =>
-  new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  new Date(d).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 
 const OutreachAttendeeProfilePage = () => {
   const { id, attendeeId } = useParams();

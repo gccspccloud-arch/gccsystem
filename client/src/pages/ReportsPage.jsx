@@ -93,8 +93,8 @@ const PrintButton = ({ disabled, defaultOrientation = 'portrait' }) => {
 
 const formatDateRange = (from, to) => {
   if (!from && !to) return '';
-  const f = from ? new Date(from).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
-  const t = to ? new Date(to).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const f = from ? new Date(from).toLocaleDateString('en-PH', { timeZone: PH_TZ, month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const t = to ? new Date(to).toLocaleDateString('en-PH', { timeZone: PH_TZ, month: 'long', day: 'numeric', year: 'numeric' }) : '';
   if (f && t) return `${f} — ${t}`;
   return f || t;
 };
@@ -106,10 +106,11 @@ const firstOfMonth = () => {
 };
 const today = () => new Date().toISOString().slice(0, 10);
 
+const PH_TZ = 'Asia/Manila';
 const formatDate = (d) =>
-  d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  d ? new Date(d).toLocaleDateString('en-PH', { timeZone: PH_TZ, month: 'short', day: 'numeric', year: 'numeric' }) : '';
 const formatDateTime = (d) =>
-  d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  d ? new Date(d).toLocaleString('en-PH', { timeZone: PH_TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
 const PILL_TONES = {
   gray: 'bg-gray-100 text-gray-700',
@@ -1722,7 +1723,7 @@ const ReportsPage = () => {
 
       <div className="print-footer">
         <span>
-          Printed on {new Date().toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+          Printed on {new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
           {printedBy && ` by ${printedBy}`}
         </span>
       </div>

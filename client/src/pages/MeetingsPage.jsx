@@ -10,6 +10,7 @@ import { PeoplePickerSingle, PeoplePickerMulti } from '@/components/PeoplePicker
 
 const formatDateTime = (d) =>
   new Date(d).toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
   });

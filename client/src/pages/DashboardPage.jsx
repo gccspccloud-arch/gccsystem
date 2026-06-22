@@ -4,13 +4,13 @@ import { reportService } from '@/services/reportService';
 import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (d) =>
-  new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  new Date(d).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 
 const formatTime = (d) =>
-  new Date(d).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
+  new Date(d).toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' });
 
 const formatDateTime = (d) =>
-  new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  new Date(d).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 const StatCard = ({ label, value, sublabel, icon }) => (
   <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">

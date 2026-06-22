@@ -23,7 +23,7 @@ import { calculateAge, getAgeClass, AGE_CLASS_STYLES } from '@/utils/age';
 import FormField from '@/components/forms/FormField';
 import FormSection from '@/components/forms/FormSection';
 
-const formatDate = (d) => (d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—');
+const formatDate = (d) => (d ? new Date(d).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' }) : '—');
 const toDateInput = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
 
 const ViewRow = ({ label, value }) => (

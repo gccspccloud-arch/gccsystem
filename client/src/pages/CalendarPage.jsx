@@ -301,7 +301,7 @@ const CalendarPage = () => {
         <div className="card">
           <h3 className="text-base font-semibold text-gray-800 mb-3">
             {selectedDate.toLocaleDateString('en-PH', {
-              weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+              timeZone: 'Asia/Manila', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
             })}
           </h3>
           {selectedCelebrants.length > 0 && (

@@ -12,9 +12,10 @@ import { useAuth } from '@/context/AuthContext';
 import { PeoplePickerSingle, PeoplePickerMulti } from '@/components/PeoplePicker';
 
 const formatDate = (d) =>
-  new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  new Date(d).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 const formatDateTime = (d) =>
   new Date(d).toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
   });

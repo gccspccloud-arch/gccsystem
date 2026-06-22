@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (date) => {
   if (!date) return '—';
-  return new Date(date).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' });
 };
 
 const MembersListPage = () => {

@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 
 const formatDate = (d) =>
   new Date(d).toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
     year: 'numeric',
     month: 'short',
     day: 'numeric',
